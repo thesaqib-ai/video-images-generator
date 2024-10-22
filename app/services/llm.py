@@ -253,7 +253,7 @@ def _generate_response(prompt: str) -> str:
 
 
 def generate_script(
-    video_subject: str, language: str = "", paragraph_number: int = 1
+    video_subject: str, language: str = "", paragraph_number: int = 3
 ) -> str:
     prompt = f"""
 # Role: Video Script Generator
@@ -344,9 +344,6 @@ Generate {amount} search terms for stock videos, depending on the subject of a v
 ## Context:
 ### Video Subject
 {video_subject}
-
-### Video Script
-{video_script}
 
 Please note that you must use English for generating video search terms; Chinese is not accepted.
 """.strip()

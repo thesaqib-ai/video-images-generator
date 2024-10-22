@@ -34,7 +34,7 @@ def get_api_key(cfg_key: str):
 def search_videos_pexels(
     search_term: str,
     minimum_duration: int,
-    video_aspect: VideoAspect = VideoAspect.portrait,
+    video_aspect: VideoAspect = VideoAspect.landscape,
 ) -> List[MaterialInfo]:
     aspect = VideoAspect(video_aspect)
     video_orientation = aspect.name
@@ -42,7 +42,7 @@ def search_videos_pexels(
     api_key = get_api_key("pexels_api_keys")
     headers = {"Authorization": api_key}
     # Build URL
-    params = {"query": search_term, "per_page": 20, "orientation": video_orientation}
+    params = {"query": search_term, "per_page": 5, "orientation": video_orientation}
     query_url = f"https://api.pexels.com/videos/search?{urlencode(params)}"
     logger.info(f"searching videos: {query_url}, with proxies: {config.proxy}")
 
@@ -187,7 +187,7 @@ def download_videos(
     task_id: str,
     search_terms: List[str],
     source: str = "pexels",
-    video_aspect: VideoAspect = VideoAspect.portrait,
+    video_aspect: VideoAspect = VideoAspect.landscape,
     video_contact_mode: VideoConcatMode = VideoConcatMode.random,
     audio_duration: float = 0.0,
     max_clip_duration: int = 5,
