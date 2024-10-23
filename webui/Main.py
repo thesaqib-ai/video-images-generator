@@ -27,10 +27,18 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# Configuration from Streamlit secrets
-project_version = st.secrets["project"]["version"]
-llm_provider = st.secrets["app"].get("llm_provider", "OpenAI").lower()
-ui_language = st.secrets["ui"].get("language", "en-US")
+from app.config import config
+from app.models.const import FILE_TYPE_IMAGES, FILE_TYPE_VIDEOS
+from app.models.schema import VideoAspect, VideoConcatMode, VideoParams
+from app.services import llm, voice
+from app.services import task as tm
+from app.utils import utils
+
+hide_streamlit_style = """
+<style>#root > div:nth-child(1) > div > div > div > div > section > div {padding-top: 0rem;}</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.title(f"MoneyPrinterTurbo v{config.project_version}")
 
 support_locales = [
     "zh-CN",
