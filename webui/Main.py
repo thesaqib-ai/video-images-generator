@@ -10,7 +10,6 @@ if root_dir not in sys.path:
     print(sys.path)
     print("")
 
-import os
 import platform
 from uuid import uuid4
 
@@ -28,18 +27,10 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-from app.config import config
-from app.models.const import FILE_TYPE_IMAGES, FILE_TYPE_VIDEOS
-from app.models.schema import VideoAspect, VideoConcatMode, VideoParams
-from app.services import llm, voice
-from app.services import task as tm
-from app.utils import utils
-
-hide_streamlit_style = """
-<style>#root > div:nth-child(1) > div > div > div > div > section > div {padding-top: 0rem;}</style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-st.title(f"MoneyPrinterTurbo v{config.project_version}")
+# Configuration from Streamlit secrets
+project_version = st.secrets["project"]["version"]
+llm_provider = st.secrets["app"].get("llm_provider", "OpenAI").lower()
+ui_language = st.secrets["ui"].get("language", "en-US")
 
 support_locales = [
     "zh-CN",
@@ -55,9 +46,6 @@ support_locales = [
 font_dir = os.path.join(root_dir, "resource", "fonts")
 song_dir = os.path.join(root_dir, "resource", "songs")
 i18n_dir = os.path.join(root_dir, "webui", "i18n")
-config_file = os.path.join(root_dir, "webui", ".streamlit", "webui.toml")
-system_locale = utils.get_system_locale()
-# print(f"******** system locale: {system_locale} ********")
 
 if "video_subject" not in st.session_state:
     st.session_state["video_subject"] = ""
@@ -66,7 +54,7 @@ if "video_script" not in st.session_state:
 if "video_terms" not in st.session_state:
     st.session_state["video_terms"] = ""
 if "ui_language" not in st.session_state:
-    st.session_state["ui_language"] = config.ui.get("language", system_locale)
+    st.session_state["ui_language"] = ui_language
 
 
 def get_all_fonts():
@@ -130,7 +118,6 @@ def init_log():
         # 更新记录中的文件路径
         record["file"].path = f"./{relative_path}"
         # 返回修改后的格式字符串
-        # 您可以根据需要调整这里的格式
         record["message"] = record["message"].replace(root_dir, ".")
 
         _format = (
@@ -148,8 +135,12 @@ def init_log():
         format=format_record,
         colorize=True,
     )
+
+
 init_log()
 locales = utils.load_locales(i18n_dir)
+
+
 def tr(key):
     loc = locales.get(st.session_state["ui_language"], {})
     return loc.get("Translation", {}).get(key, key)
@@ -157,9 +148,7 @@ def tr(key):
 
 st.write(tr("Get Help"))
 
-llm_provider = config.app.get("llm_provider", "").lower()
-
-if not config.app.get("hide_config", False):
+if not st.secrets["app"].get("hide_config", False):
     with st.expander(tr("Basic Settings"), expanded=True):
         config_panels = st.columns(3)
         left_config_panel = config_panels[0]
@@ -179,23 +168,13 @@ if not config.app.get("hide_config", False):
             if selected_language:
                 code = selected_language.split(" - ")[0].strip()
                 st.session_state["ui_language"] = code
-                config.ui["language"] = code
 
             # 是否禁用日志显示
             hide_log = st.checkbox(
-                tr("Hide Log"), value=config.app.get("hide_log", False)
+                tr("Hide Log"), value=st.secrets["app"].get("hide_log", False)
             )
-            config.ui["hide_log"] = hide_log
 
         with middle_config_panel:
-            #   openai
-            #   moonshot (月之暗面)
-            #   oneapi
-            #   g4f
-            #   azure
-            #   qwen (通义千问)
-            #   gemini
-            #   ollama
             llm_providers = [
                 "OpenAI",
                 "Moonshot",
@@ -209,29 +188,21 @@ if not config.app.get("hide_config", False):
                 "Cloudflare",
                 "ERNIE",
             ]
-            saved_llm_provider = config.app.get("llm_provider", "OpenAI").lower()
-            saved_llm_provider_index = 0
-            for i, provider in enumerate(llm_providers):
-                if provider.lower() == saved_llm_provider:
-                    saved_llm_provider_index = i
-                    break
+            saved_llm_provider_index = llm_providers.index(llm_provider)
 
             llm_provider = st.selectbox(
                 tr("LLM Provider"),
                 options=llm_providers,
                 index=saved_llm_provider_index,
             )
-            llm_helper = st.container()
             llm_provider = llm_provider.lower()
-            config.app["llm_provider"] = llm_provider
+            st.secrets["app"]["llm_provider"] = llm_provider
 
-            llm_api_key = config.app.get(f"{llm_provider}_api_key", "")
-            llm_secret_key = config.app.get(
-                f"{llm_provider}_secret_key", ""
-            )  # only for baidu ernie
-            llm_base_url = config.app.get(f"{llm_provider}_base_url", "")
-            llm_model_name = config.app.get(f"{llm_provider}_model_name", "")
-            llm_account_id = config.app.get(f"{llm_provider}_account_id", "")
+            llm_api_key = st.secrets["app"].get(f"{llm_provider}_api_key", "")
+            llm_secret_key = st.secrets["app"].get(f"{llm_provider}_secret_key", "")  # only for baidu ernie
+            llm_base_url = st.secrets["app"].get(f"{llm_provider}_base_url", "")
+            llm_model_name = st.secrets["app"].get(f"{llm_provider}_model_name", "")
+            llm_account_id = st.secrets["app"].get(f"{llm_provider}_account_id", "")
 
             tips = ""
             if llm_provider == "ollama":
@@ -352,72 +323,73 @@ if not config.app.get("hide_config", False):
                            - **Base Url**: 填写 **请求地址** [点击查看文档](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/jlil56u11#%E8%AF%B7%E6%B1%82%E8%AF%B4%E6%98%8E)
                            """
 
-            if tips and config.ui["language"] == "zh":
+            if tips and st.secrets["ui"]["language"] == "zh":
                 st.warning(
                     "中国用户建议使用 **DeepSeek** 或 **Moonshot** 作为大模型提供商\n- 国内可直接访问，不需要VPN \n- 注册就送额度，基本够用"
                 )
                 st.info(tips)
 
             st_llm_api_key = st.text_input(
-                tr("API Key"), value=llm_api_key, type="password"
+                tr("API Key"), value=st.secrets.get("llm_api_key", ""), type="password"
             )
-            st_llm_base_url = st.text_input(tr("Base Url"), value=llm_base_url)
+            st_llm_base_url = st.text_input(tr("Base Url"), value=st.secrets.get("llm_base_url", ""))
             st_llm_model_name = ""
+            llm_provider = st.secrets["llm_provider"]
+
             if llm_provider != "ernie":
                 st_llm_model_name = st.text_input(
                     tr("Model Name"),
-                    value=llm_model_name,
+                    value=st.secrets.get(f"{llm_provider}_model_name", ""),
                     key=f"{llm_provider}_model_name_input",
                 )
-                if st_llm_model_name:
-                    config.app[f"{llm_provider}_model_name"] = st_llm_model_name
             else:
                 st_llm_model_name = None
-
+            
             if st_llm_api_key:
-                config.app[f"{llm_provider}_api_key"] = st_llm_api_key
+                st.secrets["app"][f"{llm_provider}_api_key"] = st_llm_api_key
             if st_llm_base_url:
-                config.app[f"{llm_provider}_base_url"] = st_llm_base_url
+                st.secrets["app"][f"{llm_provider}_base_url"] = st_llm_base_url
             if st_llm_model_name:
-                config.app[f"{llm_provider}_model_name"] = st_llm_model_name
+                st.secrets["app"][f"{llm_provider}_model_name"] = st_llm_model_name
             if llm_provider == "ernie":
                 st_llm_secret_key = st.text_input(
-                    tr("Secret Key"), value=llm_secret_key, type="password"
+                    tr("Secret Key"), value=st.secrets.get("llm_secret_key", ""), type="password"
                 )
-                config.app[f"{llm_provider}_secret_key"] = st_llm_secret_key
-
+                st.secrets["app"][f"{llm_provider}_secret_key"] = st_llm_secret_key
+            
             if llm_provider == "cloudflare":
                 st_llm_account_id = st.text_input(
-                    tr("Account ID"), value=llm_account_id
+                    tr("Account ID"), value=st.secrets.get("llm_account_id", "")
                 )
                 if st_llm_account_id:
-                    config.app[f"{llm_provider}_account_id"] = st_llm_account_id
+                    st.secrets["app"][f"{llm_provider}_account_id"] = st_llm_account_id
 
         with right_config_panel:
-
-            def get_keys_from_config(cfg_key):
-                api_keys = config.app.get(cfg_key, [])
+        
+            def get_keys_from_secrets(cfg_key):
+                api_keys = st.secrets["app"].get(cfg_key, [])
                 if isinstance(api_keys, str):
                     api_keys = [api_keys]
-                api_key = ", ".join(api_keys)
-                return api_key
-
-            def save_keys_to_config(cfg_key, value):
+                return ", ".join(api_keys)
+        
+            def save_keys_to_secrets(cfg_key, value):
                 value = value.replace(" ", "")
                 if value:
-                    config.app[cfg_key] = value.split(",")
-
-            pexels_api_key = get_keys_from_config("pexels_api_keys")
+                    st.secrets["app"][cfg_key] = value.split(",")
+        
+            pexels_api_key = get_keys_from_secrets("pexels_api_keys")
             pexels_api_key = st.text_input(
                 tr("Pexels API Key"), value=pexels_api_key, type="password"
             )
-            save_keys_to_config("pexels_api_keys", pexels_api_key)
-
-            pixabay_api_key = get_keys_from_config("pixabay_api_keys")
+            save_keys_to_secrets("pexels_api_keys", pexels_api_key)
+        
+            pixabay_api_key = get_keys_from_secrets("pixabay_api_keys")
             pixabay_api_key = st.text_input(
                 tr("Pixabay API Key"), value=pixabay_api_key, type="password"
             )
-            save_keys_to_config("pixabay_api_keys", pixabay_api_key)
+            save_keys_to_secrets("pixabay_api_keys", pixabay_api_key)
+
+
 
 panel = st.columns(1)
 main_panel = panel[0]
@@ -475,7 +447,7 @@ with main_panel:
         
 
         params.video_source = "pexels"
-        config.app["video_source"] = params.video_source
+        st.secrets["video_source"] = params.video_source
         
         params.video_concat_mode = VideoConcatMode.random.value
 
@@ -486,7 +458,7 @@ with main_panel:
         params.video_count = 1
 
         voices = voice.get_all_azure_voices(filter_locals=support_locales)
-        saved_voice_name = config.ui.get("voice_name", "")
+        saved_voice_name =  st.secrets.ui.get("voice_name", "")
 
         params.voice_name = saved_voice_name
 
@@ -503,16 +475,16 @@ with main_panel:
 
         font_names = get_all_fonts()
 
-        saved_font_name = config.ui.get("font_name", "")
+        saved_font_name = st.secrets.ui.get("font_name", "")
 
         params.font_name = saved_font_name
         
         params.subtitle_position = "bottom"
 
-        saved_text_fore_color = config.ui.get("text_fore_color", "")
+        saved_text_fore_color = st.secrets.ui.get("text_fore_color", "")
         params.text_fore_color = saved_text_fore_color
 
-        saved_font_size = config.ui.get("font_size", )
+        saved_font_size = st.secrets.ui.get("font_size", )
         params.font_size = saved_font_size
 
         params.stroke_color = "#000000"
@@ -551,7 +523,7 @@ if image_button:
         url = "https://yescale.one/v1/images/generations"
         
         # Replace with your actual API token
-        api_token = config.app.get(f"{llm_provider}_api_key", "")
+        api_token = st.secrets.app.get(f"{llm_provider}_api_key", "")
         
         payload = {
             "prompt": prompt,
@@ -605,7 +577,7 @@ if video_button:
         scroll_to_bottom()
         st.stop()
 
-    if llm_provider != "g4f" and not config.app.get(f"{llm_provider}_api_key", ""):
+    if llm_provider != "g4f" and not st.secrets.app.get(f"{llm_provider}_api_key", ""):
         st.error(tr("Please Enter the LLM API Key"))
         scroll_to_bottom()
         st.stop()
@@ -615,12 +587,12 @@ if video_button:
         scroll_to_bottom()
         st.stop()
 
-    if params.video_source == "pexels" and not config.app.get("pexels_api_keys", ""):
+    if params.video_source == "pexels" and not st.secrets.app.get("pexels_api_keys", ""):
         st.error(tr("Please Enter the Pexels API Key"))
         scroll_to_bottom()
         st.stop()
 
-    if params.video_source == "pixabay" and not config.app.get("pixabay_api_keys", ""):
+    if params.video_source == "pixabay" and not st.secrets.app.get("pixabay_api_keys", ""):
         st.error(tr("Please Enter the Pixabay API Key"))
         scroll_to_bottom()
         st.stop()
@@ -629,7 +601,7 @@ if video_button:
     log_records = []
 
     def log_received(msg):
-        if config.ui["hide_log"]:
+        if st.secrets.ui["hide_log"]:
             return
         with log_container:
             log_records.append(msg)
