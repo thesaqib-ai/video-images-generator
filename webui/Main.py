@@ -27,7 +27,7 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-from app.config import config
+# from app.config import config
 from app.models.const import FILE_TYPE_IMAGES, FILE_TYPE_VIDEOS
 from app.models.schema import VideoAspect, VideoConcatMode, VideoParams
 from app.services import llm, voice
@@ -38,7 +38,7 @@ hide_streamlit_style = """
 <style>#root > div:nth-child(1) > div > div > div > div > section > div {padding-top: 0rem;}</style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-st.title(f"MoneyPrinterTurbo v{config.project_version}")
+st.title(f"MoneyPrinterTurbo")
 
 support_locales = [
     "zh-CN",
@@ -578,7 +578,7 @@ if image_button:
             with col:
                 st.image(url, use_column_width='auto')  # Use auto width for images
 if video_button:
-    config.save_config()
+    # config.save_config()
     task_id = str(uuid4())
     if not params.video_subject and not params.video_script:
         st.error(tr("Video Script and Subject Cannot Both Be Empty"))
@@ -643,4 +643,4 @@ if video_button:
     logger.info(tr("Video Generation Completed"))
     scroll_to_bottom()
 
-config.save_config()
+# config.save_config()
